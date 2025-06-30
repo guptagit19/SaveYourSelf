@@ -17,10 +17,11 @@ DeviceEventEmitter.addListener('NATIVE_LOG', msg => {
 });
 
 // 2) Start/stop the actual app-foreground monitor:
-export function startAppMonitoring() {
-  console.log('[DEBUG][appMonitor] start');
-  AppUtilsModule.startAppMonitoring();
-
+export function startAppMonitoring(accessRules) {
+  console.log('[DEBUG][appMonitor] start accessRules = ', accessRules);
+  //AppUtilsModule.startAppMonitoring();
+  // ① send initial rules to native, then start service
+  AppUtilsModule.initAppMonitor(JSON.stringify(accessRules));
   // when you start monitoring:
   DeviceEventEmitter.removeAllListeners('APP_IN_FOREGROUND');
   fgSubscription = DeviceEventEmitter.addListener(

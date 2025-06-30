@@ -8,7 +8,7 @@ export default function AppListItem({ app }) {
   const { selectedApps, toggleApp } = useContext(AppContext);
   const isSelected = selectedApps.some(a => a.packageName === app.packageName);
 
-  console.log(
+  console.debug(
     '[DEBUG][AppListItem]',
     app.packageName,
     'selected?',

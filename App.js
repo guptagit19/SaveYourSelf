@@ -27,11 +27,13 @@ function InnerApp() {
   useEffect(() => {
     if (!isLoading) {
       console.log('[DEBUG][App] Storage loaded – starting monitor');
-      console.debug('[DEBUG][App] Storage loaded – starting monitor');
+      console.log('[DEBUG][App] accessRules – ', accessRules);
       debugStorage();
-      startAppMonitoring();
+      //startAppMonitoring();
+      // pass current rules into the native bridge
+      startAppMonitoring(accessRules);
     }
-  }, [isLoading]);
+  }, [isLoading, accessRules]);
 
   useEffect(() => {
     console.log('[DEBUG][App] useEffect ', 'DeviceEventEmitter');

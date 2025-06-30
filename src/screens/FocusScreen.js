@@ -1,3 +1,4 @@
+// File: src/screens/FocusScreen.js
 import React, { useContext } from 'react';
 import {
   View,

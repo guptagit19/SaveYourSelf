@@ -93,6 +93,13 @@ class AppUtilsModule(reactContext: ReactApplicationContext) :
     )
   }
 
+  /** Call this from JS when you want to close the SetupActivity */
+  @ReactMethod
+  fun finishSetupActivity() {
+    Log.d("[AppUtilsModule]", "finishSetupActivity...")
+    currentActivity?.finish()
+  }
+
   // no-op stubs for NativeEventEmitter
   @ReactMethod
   fun addListener(eventName: String) { /* no-op */ }

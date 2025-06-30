@@ -1,3 +1,4 @@
+// File: src/hooks/useInstalledApps.js
 import { useEffect, useState } from 'react';
 import { NativeModules } from 'react-native';
 console.log('Registered NativeModules:', Object.keys(NativeModules));
