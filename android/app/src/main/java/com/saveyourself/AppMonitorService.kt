@@ -6,47 +6,39 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.facebook.react.ReactApplication
 import com.google.gson.Gson
 
 class AppMonitorService : Service() {
   companion object {
-    private const val CHANNEL_ID_MONITOR   = "app_monitor_channel"
-    private const val CHANNEL_ID_BLOCK     = "app_block_channel"
-    private const val NOTIF_ID_MONITOR     = 1
-    private const val NOTIF_ID_BLOCK_BASE  = 1000
+    private const val CHANNEL_ID_MONITOR = "app_monitor_channel"
+    private const val NOTIF_ID_MONITOR   = 1
+    private const val MAX_OVERLAY_RETRIES = 10 // Increased max retries
+    private const val OVERLAY_RETRY_DELAY_MS = 200L // Reduced delay for faster retries
   }
 
   private lateinit var usageStats: UsageStatsManager
   private var running = true
-  private var blockCount = 0
   private var lastPkg: String? = null
-
+  private val handler = Handler(Looper.getMainLooper()) // Handler for posting delayed tasks
 
   override fun onCreate() {
     super.onCreate()
     usageStats = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-    createChannels()
+    createMonitorChannel()
     startForeground(NOTIF_ID_MONITOR, buildMonitorNotification())
     monitorLoop()
   }
 
-  private fun createChannels() {
+  private fun createMonitorChannel() {
     val nm = getSystemService(NotificationManager::class.java)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       nm.createNotificationChannel(
         NotificationChannel(CHANNEL_ID_MONITOR, "App Monitor", NotificationManager.IMPORTANCE_LOW)
-      )
-      nm.createNotificationChannel(
-        NotificationChannel(CHANNEL_ID_BLOCK, "Blocked App", NotificationManager.IMPORTANCE_HIGH)
-          .apply {
-            // full‑screen allowed
-            setBypassDnd(true)
-            setLockscreenVisibility(Notification.VISIBILITY_PUBLIC)
-          }
       )
     }
   }
@@ -58,27 +50,6 @@ class AppMonitorService : Service() {
       .setSmallIcon(R.mipmap.ic_launcher)
       .build()
 
-  private fun buildBlockNotification(pkg: String): Notification {
-    Log.d("AppMonitorService", "buildBlockNotification pkg - ${pkg}")
-    // Intent to launch your transparent SetupActivity
-    val fullScreenIntent = Intent(this, SetupActivity::class.java).apply {
-      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-      putExtra("pkg", pkg)
-    }
-    val fullScreenPending =
-      PendingIntent.getActivity(this, blockCount++, fullScreenIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-    return NotificationCompat.Builder(this, CHANNEL_ID_BLOCK)
-      .setContentTitle("App Blocked")
-      .setContentText("Access to $pkg is blocked")
-      .setSmallIcon(R.mipmap.ic_launcher)
-      .setPriority(NotificationCompat.PRIORITY_HIGH)
-      .setCategory(NotificationCompat.CATEGORY_CALL)        // “full‑screen” category
-      .setFullScreenIntent(fullScreenPending, true)
-      .build()
-  }
-
   private fun monitorLoop() {
     Log.d("AppMonitorService", "monitorLoop")
     Thread {
@@ -88,7 +59,6 @@ class AppMonitorService : Service() {
           val events = usageStats.queryEvents(now - 2000, now)
           val ev = UsageEvents.Event()
           var fgPkg: String? = null
-          Log.d("AppMonitorService", "Pulling app...")
           while (events.hasNextEvent()) {
             events.getNextEvent(ev)
             if (ev.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
@@ -96,13 +66,15 @@ class AppMonitorService : Service() {
             }
           }
           fgPkg?.let { pkg ->
-            Log.d("AppMonitorService", "Foreground = $pkg")
-            //if (shouldBlock(pkg)) {
-            if (pkg != null && pkg != lastPkg && shouldBlock(pkg)) {
-              Log.d("AppMonitorService", "shouldBlock inside = $pkg")
-              sendBlockNotification(pkg)
+            if (pkg != lastPkg) { // Only log and check if package changed
+              Log.d("AppMonitorService", "Foreground = $pkg")
+              if (shouldBlock(pkg)) {
+                Log.d("AppMonitorService", "shouldBlock inside = $pkg")
+                // Directly call the OverlayModule to show the lock screen
+                showLockScreenOverlay(pkg, 0) // Start with retry count 0
+              }
+              lastPkg = pkg
             }
-            lastPkg = pkg
           }
 
           Thread.sleep(1000)
@@ -114,12 +86,21 @@ class AppMonitorService : Service() {
   }
 
   private fun shouldBlock(pkg: String): Boolean {
+    // Prevent blocking your own app or the Android system launcher/UI
+    if (pkg == packageName ||
+      pkg == "com.google.android.launcher" ||
+      pkg == "com.android.launcher3" ||
+      pkg == "com.android.systemui" ||
+      pkg == "com.google.android.gms" || // Google Play Services
+      pkg == "android" // Android system process
+    ) {
+      return false
+    }
+
     val rulesJson = AppUtilsModule.currentRulesJson
-    Log.e("AppMonitorService", "shouldBlock inside rulesJson = ${rulesJson}")
     val map: Map<String, Any> =
       Gson().fromJson(rulesJson, Map::class.java) as Map<String, Any>
     val pkgRule = map[pkg] as? Map<*, *> ?: return false
-    Log.e("AppMonitorService", "shouldBlock inside pkgRule = ${pkgRule}")
     // 3) If it’s in the map *but* empty → trigger the initial setup
     if (pkgRule.isEmpty()) {
       Log.d("AppMonitorService", "First time seeing $pkg, showing setup")
@@ -128,22 +109,41 @@ class AppMonitorService : Service() {
     // now check pkgRule["accessEnd"] and pkgRule["lockEnd"]
     val now = System.currentTimeMillis()
     val accessEnd = (pkgRule["accessEnd"] as? Double)?.toLong() ?: 0L
-    val lockEnd   = (pkgRule["lockEnd"]   as? Double)?.toLong() ?: 0L
-    Log.e("AppMonitorService", "shouldBlock inside accessEnd = ${accessEnd}")
-    Log.e("AppMonitorService", "shouldBlock inside lockEnd = ${lockEnd}")
+    val lockEnd    = (pkgRule["lockEnd"]    as? Double)?.toLong() ?: 0L
     return now > accessEnd && now < lockEnd
   }
 
-  private fun sendBlockNotification(pkg: String) {
-    Log.d("AppMonitorService", "sendBlockNotification inside = $pkg")
-    val notificationId = NOTIF_ID_BLOCK_BASE  // always same ID for same channel
-    val nm = getSystemService(NotificationManager::class.java)
-    nm.notify(notificationId, buildBlockNotification(pkg))
-    //nm.notify(NOTIF_ID_BLOCK_BASE + blockCount, buildBlockNotification(pkg))
+  // Modified function to retry showing the overlay
+  private fun showLockScreenOverlay(pkg: String, retryCount: Int) {
+    if (retryCount >= MAX_OVERLAY_RETRIES) {
+      Log.e("AppMonitorService", "Max retries reached for showing overlay for $pkg. Aborting.")
+      return
+    }
+
+    Log.d("AppMonitorService", "Attempting to show overlay for $pkg (Retry: $retryCount)")
+    // Get the ReactContext from MainApplication
+    val reactContext = (application as MainApplication).getActiveReactContext()
+
+    if (reactContext != null && reactContext.hasActiveCatalystInstance()) {
+      val overlayModule = reactContext.getNativeModule(OverlayModule::class.java)
+      overlayModule?.showLockScreen(pkg) // Call directly
+    } else {
+      Log.w("AppMonitorService", "ReactContext not available or not active. Retrying in ${OVERLAY_RETRY_DELAY_MS}ms (Retry: ${retryCount + 1})...")
+      handler.postDelayed({
+        showLockScreenOverlay(pkg, retryCount + 1)
+      }, OVERLAY_RETRY_DELAY_MS)
+    }
   }
 
   override fun onDestroy() {
     running = false
+    handler.removeCallbacksAndMessages(null) // Clean up any pending handler messages
+    // Ensure overlay is hidden when service is destroyed
+    val reactContext = (application as MainApplication).getActiveReactContext()
+    if (reactContext != null && reactContext.hasActiveCatalystInstance()) {
+      val overlayModule = reactContext.getNativeModule(OverlayModule::class.java)
+      overlayModule?.hideLockScreen() // Call directly
+    }
     super.onDestroy()
   }
 

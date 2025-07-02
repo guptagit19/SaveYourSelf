@@ -11,13 +11,13 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.facebook.react.modules.core.DeviceEventManagerModule // Keep if you use other events, otherwise remove
 import com.google.gson.Gson
 import java.io.ByteArrayOutputStream
 import android.util.Log
 
 class AppUtilsModule(reactContext: ReactApplicationContext) :
-    ReactContextBaseJavaModule(reactContext) {
+  ReactContextBaseJavaModule(reactContext) {
 
   companion object {
     @JvmStatic
@@ -74,14 +74,14 @@ class AppUtilsModule(reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun startAppMonitoring() {
-     Log.d("[AppUtilsModule]", "startAppMonitoring...")
+    Log.d("[AppUtilsModule]", "startAppMonitoring...")
     val intent = Intent(reactApplicationContext, AppMonitorService::class.java)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       reactApplicationContext.startForegroundService(intent)
-       Log.d("[AppUtilsModule]", "startAppMonitoring if..")
+      Log.d("[AppUtilsModule]", "startAppMonitoring if..")
     } else {
       reactApplicationContext.startService(intent)
-       Log.d("[AppUtilsModule]", "startAppMonitoring else ...")
+      Log.d("[AppUtilsModule]", "startAppMonitoring else ...")
     }
   }
 
@@ -97,7 +97,14 @@ class AppUtilsModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun finishSetupActivity() {
     Log.d("[AppUtilsModule]", "finishSetupActivity...")
-    currentActivity?.finish()
+    // Now directly call the OverlayModule to hide the lock screen
+    val reactContext = MainApplication.reactInstanceManager?.currentReactContext
+    if (reactContext != null && reactContext.hasActiveCatalystInstance()) {
+      val overlayModule = reactContext.getNativeModule(OverlayModule::class.java)
+      overlayModule?.hideLockScreen()
+    } else {
+      Log.w("[AppUtilsModule]", "ReactContext not available or not active, cannot hide overlay.")
+    }
   }
 
   // no-op stubs for NativeEventEmitter
@@ -107,7 +114,7 @@ class AppUtilsModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun removeListeners(count: Double) { /* no-op */ }
 
-  // helper to push any string back into JS
+  // helper to push any string back into JS (if still needed for other purposes)
   private fun sendToJs(tag: String, msg: String) {
     reactApplicationContext
       .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)

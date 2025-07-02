@@ -1,11 +1,11 @@
 package com.saveyourself
 
 import android.Manifest
-import android.app.AlertDialog // Added import for AlertDialog
+import android.app.AlertDialog
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri // Added import for Uri
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -36,7 +36,7 @@ class MainActivity : ReactActivity() {
       )
     }
 
-    // 3) Overlay permission
+    // 3) Overlay permission - crucial for SYSTEM_ALERT_WINDOW
     ensureOverlayPermission()
   }
 
@@ -50,12 +50,12 @@ class MainActivity : ReactActivity() {
     return mode == AppOpsManager.MODE_ALLOWED
   }
 
-    private fun ensureOverlayPermission() {
+  private fun ensureOverlayPermission() {
     if (!Settings.canDrawOverlays(this)) {
       AlertDialog.Builder(this)
         .setTitle("Overlay Permission Required")
         .setMessage("Please allow this app to draw over other apps so we can show the lock screen.")
-        .setPositiveButton("Grant") { _, _ -> // Types inferred correctly with AlertDialog import
+        .setPositiveButton("Grant") { _, _ ->
           startActivity(
             Intent(
               Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
