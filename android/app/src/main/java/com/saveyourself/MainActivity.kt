@@ -1,9 +1,11 @@
 package com.saveyourself
 
 import android.Manifest
+import android.app.AlertDialog // Added import for AlertDialog
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri // Added import for Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -33,6 +35,9 @@ class MainActivity : ReactActivity() {
         NOTIF_REQUEST
       )
     }
+
+    // 3) Overlay permission
+    ensureOverlayPermission()
   }
 
   private fun hasUsageStatsPermission(): Boolean {
@@ -43,6 +48,24 @@ class MainActivity : ReactActivity() {
       packageName
     )
     return mode == AppOpsManager.MODE_ALLOWED
+  }
+
+    private fun ensureOverlayPermission() {
+    if (!Settings.canDrawOverlays(this)) {
+      AlertDialog.Builder(this)
+        .setTitle("Overlay Permission Required")
+        .setMessage("Please allow this app to draw over other apps so we can show the lock screen.")
+        .setPositiveButton("Grant") { _, _ -> // Types inferred correctly with AlertDialog import
+          startActivity(
+            Intent(
+              Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+              Uri.parse("package:$packageName")
+            )
+          )
+        }
+        .setCancelable(false)
+        .show()
+    }
   }
 
   override fun getMainComponentName(): String = "SaveYourSelf"
