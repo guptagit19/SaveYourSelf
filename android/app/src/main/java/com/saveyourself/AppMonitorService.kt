@@ -123,7 +123,8 @@ class AppMonitorService : Service() {
     Log.d("AppMonitorService", "Attempting to show overlay for $pkg (Retry: $retryCount)")
     // Get the ReactContext from MainApplication
     val reactContext = (application as MainApplication).getActiveReactContext()
-
+    Log.d("AppMonitorService", "Inside showLockScreenOverlay reactContext =  $reactContext")
+    Log.d("AppMonitorService", "Inside showLockScreenOverlay reactContext.hasActiveCatalystInstance() =  $reactContext.hasActiveCatalystInstance()")
     if (reactContext != null && reactContext.hasActiveCatalystInstance()) {
       val overlayModule = reactContext.getNativeModule(OverlayModule::class.java)
       overlayModule?.showLockScreen(pkg) // Call directly
