@@ -1,4 +1,4 @@
-// File: src/components/SetupOverlay.js
+// File: src/components/AccessSetupModel.js
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -29,8 +29,8 @@ export default function SetupOverlay({ packageName }) {
 
     // 1) Persist your access rule
     setRule(packageName, { accessEnd, lockEnd, lockDuration });
-    // 2) Finish the Android Activity
-    AppUtilsModule.finishSetupActivity();
+    // 2) Finish the Android Activity (now LockScreenActivity)
+    AppUtilsModule.finishLockScreenActivity();
   };
 
   return (
@@ -79,7 +79,7 @@ export default function SetupOverlay({ packageName }) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.btnCancel}
-          onPress={() => AppUtilsModule.finishSetupActivity()}
+          onPress={() => AppUtilsModule.finishLockScreenActivity()}
         >
           <Text style={styles.btnText}>Cancel</Text>
         </TouchableOpacity>

@@ -9,9 +9,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- SYSTEM_ALERT_WINDOW for drawing over other apps -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-    <!-- Removed USE_FULL_SCREEN_INTENT as we are moving away from full-screen notifications -->
 
-    <!-- 🔍 Recommended: Declare intent query for app listing -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -28,7 +26,6 @@
         android:theme="@style/AppTheme"
         android:supportsRtl="true">
 
-        <!-- 👀 Foreground service to monitor app usage -->
         <service
             android:name=".AppMonitorService"
             android:exported="false"
@@ -47,7 +44,15 @@
             </intent-filter>
         </activity>
 
-        <!-- Removed SetupActivity declaration as it's no longer used for the overlay -->
+        <!-- NEW: Declare LockScreenActivity -->
+        <activity
+            android:name=".LockScreenActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar.FullScreen"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+        />
 
     </application>
 </manifest>

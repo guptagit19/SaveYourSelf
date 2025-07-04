@@ -11,7 +11,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.modules.core.DeviceEventManagerModule // Keep if you use other events, otherwise remove
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.gson.Gson
 import java.io.ByteArrayOutputStream
 import android.util.Log
@@ -93,18 +93,15 @@ class AppUtilsModule(reactContext: ReactApplicationContext) :
     )
   }
 
-  /** Call this from JS when you want to close the SetupActivity */
+  /** Call this from JS when you want to close the LockScreenActivity */
   @ReactMethod
-  fun finishSetupActivity() {
-    Log.d("[AppUtilsModule]", "finishSetupActivity...")
-    // Now directly call the OverlayModule to hide the lock screen
-    val reactContext = MainApplication.reactInstanceManager?.currentReactContext
-    if (reactContext != null && reactContext.hasActiveCatalystInstance()) {
-      val overlayModule = reactContext.getNativeModule(OverlayModule::class.java)
-      overlayModule?.hideLockScreen()
-    } else {
-      Log.w("[AppUtilsModule]", "ReactContext not available or not active, cannot hide overlay.")
-    }
+  fun finishLockScreenActivity() {
+    Log.d("[AppUtilsModule]", "finishLockScreenActivity...")
+    // Send a broadcast or directly finish the LockScreenActivity
+    // This assumes LockScreenActivity is the current activity.
+    // A safer way is to send a broadcast that LockScreenActivity listens for.
+    // For simplicity, let's try finishing the current activity.
+    currentActivity?.finish()
   }
 
   // no-op stubs for NativeEventEmitter
